@@ -7,7 +7,9 @@ import os
 import onnxruntime
 import pickle
 import mediapipe as mp
-from frame_utilities import *  # your helpers
+from frame_utilities import *
+
+################ MODEL LOADING ################
 
 providers = ["DmlExecutionProvider", "CPUExecutionProvider"]
 
@@ -29,30 +31,32 @@ rf_model = model_dict["model"]
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
+################################################
+
 st.set_page_config(page_title="Real-Time Volleyball Action Detection", page_icon="🏐", layout="centered")
 st.markdown("<h1 style='text-align: center;'>🏐 Real-Time Volleyball 🏐<br>Action Detection</h1>", unsafe_allow_html=True)
 
-# Select task
+# Select task type
 task = st.radio("Choose a task:", ["Person Detection", "Volleyball Detection", "Action Detection"])
 
 # Select input type
 input_type = st.radio("Choose input type:", ["Video", "Image"])
 
+# Image Input
 if input_type == "Image":
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+
     if uploaded_image and st.button("Run Detection"):
         file_bytes = np.asarray(bytearray(uploaded_image.read()), dtype=np.uint8)
         frame = cv2.imdecode(file_bytes, 1)  # decode as OpenCV image (BGR)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         start_time_inference = time.time()  # track inference runtime
 
-        # ---- Run selected task ----
         if task == "Person Detection":
             # Detect people
             input_coco = preprocess_yolo_input(frame_rgb)
             coco_outs = session_coco.run([output_name_coco], {input_name_coco: input_coco})
-            coco_boxes, coco_scores, coco_class_ids = postprocess_yolo_output(coco_outs[0], frame.shape,
-                                                                              conf_threshold=0.5)
+            coco_boxes, coco_scores, coco_class_ids = postprocess_yolo_output(coco_outs[0], frame.shape, conf_threshold=0.5)
 
             # Draw person detections
             for box, score, cls in zip(coco_boxes, coco_scores, coco_class_ids):
@@ -67,6 +71,7 @@ if input_type == "Image":
             ball_outs = session_volleyball.run([output_name_volleyball], {input_name_volleyball: input_ball})
             ball_boxes, ball_scores, _ = postprocess_yolo_output(ball_outs[0], frame.shape, conf_threshold=0.5)
 
+            # Draw volleyball detections
             for box in ball_boxes:
                 x1, y1, x2, y2 = map(int, box)
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
@@ -177,30 +182,27 @@ if input_type == "Image":
                                     action = str(prediction[0])
 
                                     if action != "NONE":
-
+                                        # Draw person detections
                                         x1, y1, x2, y2 = map(int, closest_person_box)
                                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                                        cv2.putText(frame, f"Person", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                                                    (0, 255, 0), 2)
+                                        cv2.putText(frame, f"Person", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
+                                        # Draw volleyball detections
                                         x1, y1, x2, y2 = map(int, ball_box)
                                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                                        cv2.putText(frame, f"Volleyball", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                                                    (0, 0, 255), 2)
+                                        cv2.putText(frame, f"Volleyball", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
+            # Show action
             action_text = f"Action: {action}"
-            (text_w, text_h), baseline = cv2.getTextSize(action_text, font, scale,
-                                                         thickness)
+            (text_w, text_h), baseline = cv2.getTextSize(action_text, font, scale, thickness)
             x, y = 15, 35
-            cv2.rectangle(frame, (x - 5, y - text_h - 5),
-                          (x + text_w + 5, y + baseline + 5), (255, 255, 255), -1)
-            cv2.putText(frame, action_text, (x, y), font, scale, (0, 0, 0), thickness,
-                        cv2.LINE_AA)
+            cv2.rectangle(frame, (x - 5, y - text_h - 5), (x + text_w + 5, y + baseline + 5), (255, 255, 255), -1)
+            cv2.putText(frame, action_text, (x, y), font, scale, (0, 0, 0), thickness, cv2.LINE_AA)
 
         end_time_inference = time.time()
         total_time = (end_time_inference - start_time_inference)*1000
         st.success(f"Total Processing Time: {total_time:.2f} miliseconds ✅")
-        # Show result
+
         st.image(frame, channels="BGR")
 
         # Allow download of annotated image
@@ -209,11 +211,10 @@ if input_type == "Image":
         with open(result_path, "rb") as f:
             st.download_button("⬇️ Download Processed Image", f, "processed_image.jpg", "image/jpeg")
 
+# Video Input
 elif input_type == "Video":
-    # Upload video
     uploaded_video = st.file_uploader("Upload a video", type=["mp4", "mov", "avi", "mkv"])
 
-    # Button to run
     if uploaded_video and st.button("Run Detection"):
         # Save video to temp file so OpenCV can read it
         tfile = tempfile.NamedTemporaryFile(delete=False)
@@ -244,9 +245,6 @@ elif input_type == "Video":
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             inference_time_start = time.time()
 
-            # ----------------------
-            # Person detection
-            # ----------------------
             if task == "Person Detection":
                 # Detect people
                 input_coco = preprocess_yolo_input(frame_rgb)
@@ -260,24 +258,18 @@ elif input_type == "Video":
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, f"Person {score:.2f}", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
-            # ----------------------
-            # Volleyball detection
-            # ----------------------
             elif task == "Volleyball Detection":
                 # Detect volleyballs
                 input_ball = preprocess_yolo_input(frame_rgb)
                 ball_outs = session_volleyball.run([output_name_volleyball], {input_name_volleyball: input_ball})
                 ball_boxes, ball_scores, _ = postprocess_yolo_output(ball_outs[0], frame.shape, conf_threshold=0.5)
 
+                # Draw volleyball detections
                 for box in ball_boxes:
                     x1, y1, x2, y2 = map(int, box)
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.putText(frame, "Volleyball", (x1, y1 - 5),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                    cv2.putText(frame, "Volleyball", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-            # ----------------------
-            # Action detection
-            # ----------------------
             elif task == "Action Detection":
                 data = []
                 frame_count = 0
@@ -301,8 +293,7 @@ elif input_type == "Video":
                     # Detect people
                     input_coco = preprocess_yolo_input(frame_rgb)
                     coco_outs = session_coco.run([output_name_coco], {input_name_coco: input_coco})
-                    coco_boxes, coco_scores, coco_class_ids = postprocess_yolo_output(coco_outs[0], original_frame_shape,
-                                                                                      conf_threshold=0.5)
+                    coco_boxes, coco_scores, coco_class_ids = postprocess_yolo_output(coco_outs[0], original_frame_shape, conf_threshold=0.5)
 
                     person_boxes = []
                     person_scores = []
@@ -389,24 +380,22 @@ elif input_type == "Video":
                                         last_action = str(prediction[0])
 
                                         if last_action != "NONE":
+                                            # Show action
                                             action_text = f"Action: {last_action}"
-                                            (text_w, text_h), baseline = cv2.getTextSize(action_text, font, scale,
-                                                                                         thickness)
+                                            (text_w, text_h), baseline = cv2.getTextSize(action_text, font, scale, thickness)
                                             x, y = 15, 100
-                                            cv2.rectangle(frame, (x - 5, y - text_h - 5),
-                                                          (x + text_w + 5, y + baseline + 5), (255, 255, 255), -1)
-                                            cv2.putText(frame, action_text, (x, y), font, scale, (0, 0, 0), thickness,
-                                                        cv2.LINE_AA)
+                                            cv2.rectangle(frame, (x - 5, y - text_h - 5), (x + text_w + 5, y + baseline + 5), (255, 255, 255), -1)
+                                            cv2.putText(frame, action_text, (x, y), font, scale, (0, 0, 0), thickness, cv2.LINE_AA)
 
+                                            # Draw person detections
                                             x1, y1, x2, y2 = map(int, closest_person_box)
                                             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                                            cv2.putText(frame, f"Person", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                                                        (0, 255, 0), 2)
+                                            cv2.putText(frame, f"Person", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
 
+                                            # Draw volleyball detections
                                             x1, y1, x2, y2 = map(int, ball_box)
                                             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                                            cv2.putText(frame, f"Volleyball", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-                                                        (0, 0, 255), 2)
+                                            cv2.putText(frame, f"Volleyball", (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
             inference_time_end = time.time()
             fps = 1 / (inference_time_end - inference_time_start)
@@ -436,9 +425,7 @@ elif input_type == "Video":
                    f"Total Processing Time: {total_time:.2f} seconds ✅\n\n"
                    f"Average FPS: {avg_fps_global:.2f} ✅")
 
-        # ----------------------
         # Convert to H264 using ffmpeg
-        # ----------------------
         h264_out_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4").name
         cmd = [
             "ffmpeg", "-y", "-i", temp_out_path,
