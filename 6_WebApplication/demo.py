@@ -40,7 +40,7 @@ input_type = st.radio("Choose input type:", ["Video", "Image"])
 
 if input_type == "Image":
     uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
-    if uploaded_image and st.button("Run Detection on Image"):
+    if uploaded_image and st.button("Run Detection"):
         file_bytes = np.asarray(bytearray(uploaded_image.read()), dtype=np.uint8)
         frame = cv2.imdecode(file_bytes, 1)  # decode as OpenCV image (BGR)
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -198,8 +198,8 @@ if input_type == "Image":
                         cv2.LINE_AA)
 
         end_time_inference = time.time()
-        total_time = end_time_inference - start_time_inference
-        st.success(f"Total Processing Time: {total_time:.2f} seconds ✅")
+        total_time = (end_time_inference - start_time_inference)*1000
+        st.success(f"Total Processing Time: {total_time:.2f} miliseconds ✅")
         # Show result
         st.image(frame, channels="BGR")
 
