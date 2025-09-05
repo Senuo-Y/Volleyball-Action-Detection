@@ -30,3 +30,39 @@ This project presents a system for **real-time volleyball action detection** usi
 - **Other Tools**: Roboflow Universe, Git, DroidCam, Figma
 
 ---
+
+## 🚀 Running the Application
+
+The application can be executed by any user who wishes to test the available detection types.
+
+### 1. Install Dependencies
+Before running the app, install the required libraries (OpenCV, Mediapipe, Ultralytics, etc.):
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Navigate to the Application Folder
+Go to the folder containing the app and required files:
+```bash
+cd 6_WebApplication
+```
+
+### 3. Launch the Streamlit Interface
+Start the application:
+```bash
+streamlit run demo.py
+```
+This command initializes the Streamlit server and should automatically open the application in your default web browser.
+If the browser does not open automatically, copy and paste the local URL displayed in the terminal (typically http://localhost:8501).
+
+### 4. Using the Interface
+Once the application is launched, the interface allows you to:
+- **Select a detection option**: choose between person detection, volleyball detection, or action detection.  
+- **Upload media**: upload images or videos to test the models.  
+- **View results**: see annotated frames in real time, including bounding boxes and predicted actions.  
+- **Download output**: save the processed images or videos for further analysis.
+
+### 5. Stopping the Application
+To stop the application, return to the terminal where Streamlit is running and press `Ctrl + C`.
+
+---
