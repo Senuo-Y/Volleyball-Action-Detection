@@ -1,0 +1,10 @@
+ultralytics
+opencv-python
+onnxruntime-directml
+openvino
+mediapipe
+numpy
+matplotlib
+seaborn
+streamlit
+scikit-learn
